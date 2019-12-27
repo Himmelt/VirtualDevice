@@ -7,91 +7,92 @@ using System.Threading.Tasks;
 
 namespace virtualdevice
 {
-    class AMA0801 : VirtualDevice
+    class Ama0801 : VirtualDevice
     {
-        private readonly int addr;
-        private bool K100 = false;
-        private int[] posValues = new int[16];
-        private int window = 0;
-        private int speed = 0;
-        private int leftLimit, rightLimit;
+        private readonly string _name;
+        private readonly int _addr;
+        private bool _k100 = false;
+        private int[] _posValues = new int[16];
+        private int _window = 0;
+        private int _speed = 0;
+        private int _leftLimit, _rightLimit;
 
         // OUT
-        private bool K100K = false;
-        private bool nK100K = false;
-        private bool BE_Ref = false;
-        private bool QKRxK = false;
-        private bool FQM = false;
-        private bool FQR = false;
-        private bool BBM = false;
-        private bool BBR = false;
+        private bool _k100K = false;
+        private bool _nK100K = false;
+        private bool _beRef = false;
+        private bool _qkRxK = false;
+        private bool _fqm = false;
+        private bool _fqr = false;
+        private bool _bbm = false;
+        private bool _bbr = false;
 
         // TEMP
-        private byte[] status_data;
-        private byte[] control_data;
-        public AMA0801(Plc plc, int addr) : base(plc)
+        private byte[] _statusData;
+        private byte[] _controlData;
+        public Ama0801(Plc plc, int addr) : base(plc)
         {
-            this.addr = addr;
+            this._addr = addr;
         }
 
-        public AMA0801 withPos(int index, int value)
+        public Ama0801 WithPos(int index, int value)
         {
-            if (index >= 0 && index < posValues.Length)
+            if (index >= 0 && index < _posValues.Length)
             {
-                posValues[index] = value;
+                _posValues[index] = value;
             }
             return this;
         }
 
-        public AMA0801 withWindow(int window)
+        public Ama0801 WithWindow(int window)
         {
-            this.window = window;
+            this._window = window;
             return this;
         }
 
-        public AMA0801 withSpeed(int speed)
+        public Ama0801 WithSpeed(int speed)
         {
-            this.speed = speed;
+            this._speed = speed;
             return this;
         }
 
-        public AMA0801 withLimit(int left, int right)
+        public Ama0801 WithLimit(int left, int right)
         {
-            this.leftLimit = left;
-            this.rightLimit = right;
+            this._leftLimit = left;
+            this._rightLimit = right;
             return this;
         }
 
-        public override void init()
+        public override void Init()
         {
             throw new NotImplementedException();
         }
 
-        public override void run()
+        public override void Run()
         {
-            control_data = plc.ReadBytes(DataType.Output, 0, addr, 4);
-            bool inhibit = IO.readBit(control_data, 1, 0);// A1.0
-            bool notEStop = IO.readBit(control_data, 1, 1);// A1.1
-            bool notStop = IO.readBit(control_data, 1, 2);// A1.2
+            _controlData = Plc.ReadBytes(DataType.Output, 0, _addr, 4);
+            bool inhibit = Io.ReadBit(_controlData, 1, 0);// A1.0
+            bool notEStop = Io.ReadBit(_controlData, 1, 1);// A1.1
+            bool notStop = Io.ReadBit(_controlData, 1, 2);// A1.2
 
-            if (K100 & !inhibit & notEStop & notStop)
+            if (_k100 & !inhibit & notEStop & notStop)
             {
-                bool fastMode = IO.readBit(control_data, 1, 7);// A1.7
-                bool start = IO.readBit(control_data, 0, 0);// A0.0
-                bool jogCW = IO.readBit(control_data, 0, 1);// A0.1
-                bool jogCCW = IO.readBit(control_data, 0, 2);// A0.2
-                bool mode_0 = IO.readBit(control_data, 0, 3);// A0.3
-                bool mode_1 = IO.readBit(control_data, 0, 4);// A0.4
-                bool mode_2 = IO.readBit(control_data, 0, 5);// A0.5
-                bool targetPos1 = IO.readBit(control_data, 3, 0);// A3.0
-                bool targetPos2 = IO.readBit(control_data, 3, 1);// A3.1
-                bool targetPos3 = IO.readBit(control_data, 3, 2);// A3.2
-                bool targetPos4 = IO.readBit(control_data, 3, 3);// A3.3
+                bool fastMode = Io.ReadBit(_controlData, 1, 7);// A1.7
+                bool start = Io.ReadBit(_controlData, 0, 0);// A0.0
+                bool jogCw = Io.ReadBit(_controlData, 0, 1);// A0.1
+                bool jogCcw = Io.ReadBit(_controlData, 0, 2);// A0.2
+                bool mode0 = Io.ReadBit(_controlData, 0, 3);// A0.3
+                bool mode1 = Io.ReadBit(_controlData, 0, 4);// A0.4
+                bool mode2 = Io.ReadBit(_controlData, 0, 5);// A0.5
+                bool targetPos1 = Io.ReadBit(_controlData, 3, 0);// A3.0
+                bool targetPos2 = Io.ReadBit(_controlData, 3, 1);// A3.1
+                bool targetPos3 = Io.ReadBit(_controlData, 3, 2);// A3.2
+                bool targetPos4 = Io.ReadBit(_controlData, 3, 3);// A3.3
 
-                bool posMode = !mode_0 && mode_1 && !mode_2;
-                bool jogMode = !mode_0 && !mode_1 && !mode_2;
-                bool techMode = mode_0 && !mode_1 && mode_2;
-                bool refMode = mode_0 && !mode_1 && !mode_2;
+                bool posMode = !mode0 && mode1 && !mode2;
+                bool jogMode = !mode0 && !mode1 && !mode2;
+                bool techMode = mode0 && !mode1 && mode2;
+                bool refMode = mode0 && !mode1 && !mode2;
 
                 if (start && posMode)
                 {
@@ -102,5 +103,17 @@ namespace virtualdevice
                 }
             }
         }
+    }
+
+    struct Control
+    {
+        bool _fastMode;// A1.7
+        bool _start;// A0.0
+        bool _jogCw;// A0.1
+        bool _jogCcw;// A0.2
+        bool _mode0;// A0.3
+        bool _mode1;// A0.4
+        bool _mode2;// A0.5
+        //bool targetPos[];// A3.0
     }
 }

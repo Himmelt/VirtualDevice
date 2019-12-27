@@ -9,29 +9,30 @@ namespace virtualdevice
 {
     public abstract class VirtualDevice
     {
-        private bool inited = false;
-        protected readonly Plc plc;
-        public VirtualDevice(Plc plc)
+        private bool _inited = false;
+        protected readonly Plc Plc;
+
+        protected VirtualDevice(Plc plc)
         {
-            this.plc = plc;
+            this.Plc = plc;
         }
         private void _init()
         {
-            init();
-            inited = true;
+            Init();
+            _inited = true;
         }
         public void _run()
         {
-            if (!inited)
+            if (!_inited)
             {
                 _init();
             }
-            run();
+            Run();
         }
 
-        public abstract void init();
+        public abstract void Init();
 
-        public abstract void run();
+        public abstract void Run();
     }
 
 }

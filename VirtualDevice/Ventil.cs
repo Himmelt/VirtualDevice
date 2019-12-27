@@ -10,11 +10,11 @@ namespace virtualdevice
     public class Ventil : VirtualDevice
     {
         public Ventil(Plc plc) : base(plc) { }
-        public override void init()
+        public override void Init()
         {
             throw new NotImplementedException();
         }
-        public override void run()
+        public override void Run()
         {
             throw new NotImplementedException();
         }
