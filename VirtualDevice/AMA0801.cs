@@ -25,7 +25,7 @@ namespace virtualdevice
         private bool _fqr = false;
         private bool _bbm = false;
         private bool _bbr = false;
-        
+
         public Ama0801(Plc plc, int addr) : base(plc)
         {
             _addr = addr;
@@ -67,7 +67,7 @@ namespace virtualdevice
         public override void Run()
         {
             Io.BytesToStruct(Plc.ReadBytes(DataType.Output, 0, _addr, 4), _control);
-            
+
             if (_k100 & !_control.inhibit & _control.notEStop & _control.notStop)
             {
                 bool posMode = !_control.mode0 && _control.mode1 && !_control.mode2;
@@ -86,7 +86,7 @@ namespace virtualdevice
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    struct Control
+   public struct Control
     {
         internal readonly bool start; // A0.0
         internal readonly bool jogCw; // A0.1
@@ -108,13 +108,11 @@ namespace virtualdevice
 
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 16, ArraySubType = UnmanagedType.Bool)]
         readonly bool[] targetPos; // AB3 - AB4
-        
-        
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     struct Status
     {
-        int stayus';'
+        internal readonly int status;
     }
 }

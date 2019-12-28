@@ -31,8 +31,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="S7.Net">
-      <HintPath>..\..\s7netplus\S7.Net\bin\Debug\net452\S7.Net.dll</HintPath>
+    <Reference Include="S7.Net, Version=0.4.0.0, Culture=neutral, PublicKeyToken=d5812d469e84c693">
+      <HintPath>..\packages\S7netplus.0.4.0\lib\net452\S7.Net.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -49,6 +50,9 @@
     <Compile Include="Ventil.cs" />
     <Compile Include="VirtualDevice.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
