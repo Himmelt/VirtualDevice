@@ -1,9 +1,4 @@
 ﻿using S7.Net;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace virtualdevice
 {
@@ -14,19 +9,22 @@ namespace virtualdevice
 
         protected VirtualDevice(Plc plc)
         {
-            this.Plc = plc;
+            Plc = plc;
         }
+
         private void _init()
         {
             Init();
             _inited = true;
         }
+
         public void _run()
         {
             if (!_inited)
             {
                 _init();
             }
+
             Run();
         }
 
@@ -34,5 +32,4 @@ namespace virtualdevice
 
         public abstract void Run();
     }
-
 }
