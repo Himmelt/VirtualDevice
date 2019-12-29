@@ -4,7 +4,7 @@ namespace virtualdevice
 {
     public abstract class VirtualDevice
     {
-        public Plc Plc { get; }
+        protected Plc Plc { get; }
         public string Name { get; }
 
         protected VirtualDevice(Plc plc, string name)

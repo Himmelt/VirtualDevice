@@ -9,7 +9,7 @@ namespace virtualdevice
         private readonly string _name;
         private readonly int _addr;
         private bool _k100 = false;
-        private int[] _posValues = new int[16];
+        private readonly int[] _posValues = new int[16];
         private int _window = 0;
         private int _speed = 0;
         private int _leftLimit, _rightLimit;
@@ -25,10 +25,10 @@ namespace virtualdevice
         private bool _bbr = false;
 
 
-        private byte[] _out_data = new byte[4];
-        private byte[] _in_data = new byte[4];
+        private byte[] _outData = new byte[4];
+        private byte[] _inData = new byte[4];
 
-        public Ama0801(Plc plc, int addr) : base(plc)
+        public Ama0801(Plc plc, string name, int addr) : base(plc, name)
         {
             _addr = addr;
         }
@@ -64,12 +64,12 @@ namespace virtualdevice
 
         public override void Read()
         {
-            _out_data = Plc.ReadBytes(DataType.Output, 0, _addr, 4);
+            _outData = Plc.ReadBytes(DataType.Output, 0, _addr, 4);
         }
 
         public override void Write()
         {
-            Plc.WriteBytes(DataType.Input, 0, _addr, _in_data);
+            Plc.WriteBytes(DataType.Input, 0, _addr, _inData);
         }
 
         /// <summary>
@@ -99,30 +99,37 @@ namespace virtualdevice
         /// </summary>
         public override void Run()
         {
-            bool inhibit = Io.ReadBit(_out_data, 1, 0);
-            bool notEStop = Io.ReadBit(_out_data, 1, 1);
-            bool notStop = Io.ReadBit(_out_data, 1, 2);
+            bool inhibit = Io.ReadBit(_outData, 1, 0);
+            bool notEStop = Io.ReadBit(_outData, 1, 1);
+            bool notStop = Io.ReadBit(_outData, 1, 2);
             if (_k100 & !inhibit & notEStop & notStop)
             {
-                bool start = Io.ReadBit(_out_data, 0, 0);
-                bool jogCw = Io.ReadBit(_out_data, 0, 1);
-                bool jogCcw = Io.ReadBit(_out_data, 0, 2);
-                /*
-                 * jogMode  - 0 0 0   0
-                 * psoMode  - 0 1 0   2
-                 * refMode  - 1 0 0   4
-                 * techMode - 1 0 1   5
-                 */
-                int mode = _out_data[0] & 0x38 >> 3;
+                bool start = Io.ReadBit(_outData, 0, 0);
+                bool jogCw = Io.ReadBit(_outData, 0, 1);
+                bool jogCcw = Io.ReadBit(_outData, 0, 2);
 
-                if (start && mode == 2)
+                int mode = _outData[0] & 0b_0011_1000;
+
+                if (start && mode == (int) Mode.Pos)
                 {
-                    bool fastMode = Io.ReadBit(_out_data, 1, 7);
+                    bool fastMode = Io.ReadBit(_outData, 1, 7);
                     int speed = fastMode ? _speed : (int) (_speed * 0.1);
-                    
-                    int targetPos = _out_data[3]
+
+                    int targetPos = Io.GetOneIndex(Io.ReadShort(_outData, 3));
+                    if (targetPos >= 0 && targetPos < 16)
+                    {
+                        int targetValue = _posValues[targetPos];
+                    }
                 }
             }
         }
+    }
+
+    enum Mode
+    {
+        Jog = 0b_0000_0000,
+        Pos = 0b_0001_0000,
+        Ref = 0b_0010_0000,
+        Tech = 0b_0010_1000
     }
 }

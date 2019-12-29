@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AMA0801.cs" />
+    <Compile Include="Ama0801.cs" />
     <Compile Include="HardwareConfig.cs" />
     <Compile Include="Io.cs" />
     <Compile Include="Ventil.cs" />

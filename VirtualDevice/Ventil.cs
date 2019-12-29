@@ -5,11 +5,16 @@ namespace virtualdevice
 {
     public class Ventil : VirtualDevice
     {
-        public Ventil(Plc plc) : base(plc)
+        public Ventil(Plc plc,string name) : base(plc,name)
         {
         }
 
         public override void Read()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Write()
         {
             throw new NotImplementedException();
         }

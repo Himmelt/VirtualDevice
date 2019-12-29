@@ -15,6 +15,33 @@ namespace virtualdevice
             return false;
         }
 
+        public static short ReadShort(byte[] data, int index)
+        {
+            if (index >= 0 && index < data.Length - 1)
+            {
+                short value = data[index];
+                return (short) (value << 8 + data[index + 1]);
+            }
+
+            return 0x00;
+        }
+
+        public static int GetOneIndex(short value)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                value >>= 1;
+                if (value != 0)
+                {
+                    continue;
+                }
+
+                return i;
+            }
+
+            return -1;
+        }
+
         public static byte ReadByte(byte[] data, int index, byte mask)
         {
             if (index >= 0 && index < data.Length)
