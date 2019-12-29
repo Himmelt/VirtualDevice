@@ -15,34 +15,14 @@ namespace virtualdevice
             return false;
         }
 
-        public static byte[] StructToBytes(object instance)
+        public static byte ReadByte(byte[] data, int index, byte mask)
         {
-            int length = Marshal.SizeOf(instance);
-            IntPtr buffer = Marshal.AllocHGlobal(length);
-            Marshal.StructureToPtr(instance, buffer, false);
-            byte[] data = new byte[length];
-            Marshal.Copy(buffer, data, 0, length);
-            Marshal.FreeHGlobal(buffer);
-            return data;
-        }
+            if (index >= 0 && index < data.Length)
+            {
+                return (byte) (data[index] & mask);
+            }
 
-        public static T BytesToStruct<T>(byte[] data)
-        {
-            int length = Marshal.SizeOf(typeof(T));
-            IntPtr buffer = Marshal.AllocHGlobal(length);
-            Marshal.Copy(data, 0, buffer, length);
-            var instance = Marshal.PtrToStructure(buffer, typeof(T));
-            Marshal.FreeHGlobal(buffer);
-            return (T) instance;
-        }
-
-        public static void BytesToStruct(byte[] data, object instance)
-        {
-            int length = Marshal.SizeOf(instance);
-            IntPtr buffer = Marshal.AllocHGlobal(length);
-            Marshal.Copy(data, 0, buffer, length);
-            Marshal.PtrToStructure(buffer, instance);
-            Marshal.FreeHGlobal(buffer);
+            return 0x00;
         }
     }
 }

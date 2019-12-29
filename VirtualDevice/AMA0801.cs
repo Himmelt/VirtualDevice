@@ -14,8 +14,6 @@ namespace virtualdevice
         private int _speed = 0;
         private int _leftLimit, _rightLimit;
 
-        private readonly Control _control = new Control();
-
         // OUT
         private bool _k100K = false;
         private bool _nK100K = false;
@@ -25,6 +23,10 @@ namespace virtualdevice
         private bool _fqr = false;
         private bool _bbm = false;
         private bool _bbr = false;
+
+
+        private byte[] _out_data = new byte[4];
+        private byte[] _in_data = new byte[4];
 
         public Ama0801(Plc plc, int addr) : base(plc)
         {
@@ -60,59 +62,67 @@ namespace virtualdevice
             return this;
         }
 
-        public override void Init()
+        public override void Read()
         {
+            _out_data = Plc.ReadBytes(DataType.Output, 0, _addr, 4);
         }
 
+        public override void Write()
+        {
+            Plc.WriteBytes(DataType.Input, 0, _addr, _in_data);
+        }
+
+        /// <summary>
+        /// AMA_A
+        /// inhibit    : BOOL;// A1.0 controller inhibit/enable
+        /// notEStop   : BOOL;// A1.1 enable/rapid stop
+        /// notStop    : BOOL;// A1.2 enable/stop
+        /// reserve1   : BOOL;// A1.3 reserved
+        /// rampScaling: BOOL;// A1.4 ramp scaling
+        /// reserve2   : BOOL;// A1.5 reserved
+        /// reset      : BOOL;// A1.6 reset
+        /// fastMode   : BOOL;// A1.7 fast fast/slow fast
+        /// //////////////////////////////////////////////////////
+        /// start      : BOOL;// A0.0 start
+        /// jogCW      : BOOL;// A0.1 jog cw
+        /// jogCCW     : BOOL;// A0.2 jog ccw
+        /// mode_0     : BOOL;// A0.3 mode 2^0
+        /// mode_1     : BOOL;// A0.4 mode 2^1
+        /// mode_2     : BOOL;// A0.5 mode 2^2
+        /// synchronize: BOOL;// A0.6 synchronize offset
+        /// softLimit  : BOOL;// A0.7 software limit switch off
+        /// ///////////////////////////////////////////////////////
+        /// targetPos1 : BOOL;// A3.0 single bit position 1
+        /// targetPos2 : BOOL;// A3.1 single bit position 2
+        /// targetPos3 : BOOL;// A3.2 single bit position 3
+        /// targetPos4 : BOOL;// A3.3 single bit position 4
+        /// </summary>
         public override void Run()
         {
-            Io.BytesToStruct(Plc.ReadBytes(DataType.Output, 0, _addr, 4), _control);
-
-            if (_k100 & !_control.inhibit & _control.notEStop & _control.notStop)
+            bool inhibit = Io.ReadBit(_out_data, 1, 0);
+            bool notEStop = Io.ReadBit(_out_data, 1, 1);
+            bool notStop = Io.ReadBit(_out_data, 1, 2);
+            if (_k100 & !inhibit & notEStop & notStop)
             {
-                bool posMode = !_control.mode0 && _control.mode1 && !_control.mode2;
-                // bool jogMode = !_control.mode0 && !_control.mode1 && !_control.mode2;
-                // bool techMode = _control.mode0 && !_control.mode1 && _control.mode2;
-                // bool refMode = _control.mode0 && !_control.mode1 && !_control.mode2;
+                bool start = Io.ReadBit(_out_data, 0, 0);
+                bool jogCw = Io.ReadBit(_out_data, 0, 1);
+                bool jogCcw = Io.ReadBit(_out_data, 0, 2);
+                /*
+                 * jogMode  - 0 0 0   0
+                 * psoMode  - 0 1 0   2
+                 * refMode  - 1 0 0   4
+                 * techMode - 1 0 1   5
+                 */
+                int mode = _out_data[0] & 0x38 >> 3;
 
-                if (_control.start && posMode)
+                if (start && mode == 2)
                 {
-                    if (!_control.fastMode)
-                    {
-                    }
+                    bool fastMode = Io.ReadBit(_out_data, 1, 7);
+                    int speed = fastMode ? _speed : (int) (_speed * 0.1);
+                    
+                    int targetPos = _out_data[3]
                 }
             }
         }
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-   public struct Control
-    {
-        internal readonly bool start; // A0.0
-        internal readonly bool jogCw; // A0.1
-        internal readonly bool jogCcw; // A0.2
-        internal readonly bool mode0; // A0.3
-        internal readonly bool mode1; // A0.4
-        internal readonly bool mode2; // A0.5
-        private readonly bool A06; // A0.6
-        private readonly bool A07; // A0.7
-
-        internal readonly bool inhibit; // A1.0
-        internal readonly bool notEStop; // A1.1
-        internal readonly bool notStop; // A1.2
-        private readonly bool A13; // A1.3
-        private readonly bool A14; // A1.4
-        private readonly bool A15; // A1.5
-        private readonly bool A16; // A1.6
-        internal readonly bool fastMode; // A1.7
-
-        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 16, ArraySubType = UnmanagedType.Bool)]
-        readonly bool[] targetPos; // AB3 - AB4
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    struct Status
-    {
-        internal readonly int status;
     }
 }

@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AMA0801.cs" />
+    <Compile Include="HardwareConfig.cs" />
     <Compile Include="Io.cs" />
     <Compile Include="Ventil.cs" />
     <Compile Include="VirtualDevice.cs" />

@@ -9,7 +9,7 @@ namespace virtualdevice
         {
         }
 
-        public override void Init()
+        public override void Read()
         {
             throw new NotImplementedException();
         }
