@@ -13,8 +13,10 @@ namespace virtualdevice
         private int _window = 0;
         private int _speed = 0;
         private int _leftLimit, _rightLimit;
+        private double _actualPos;
 
         // OUT
+        private bool _axisSync = false;
         private bool _k100K = false;
         private bool _nK100K = false;
         private bool _beRef = false;
@@ -23,6 +25,8 @@ namespace virtualdevice
         private bool _fqr = false;
         private bool _bbm = false;
         private bool _bbr = false;
+
+        private readonly bool[] _sensors = new bool[16];
 
 
         private byte[] _outData = new byte[4];
@@ -99,33 +103,74 @@ namespace virtualdevice
         /// </summary>
         public override void Run()
         {
-            bool inhibit = Io.ReadBit(_outData, 1, 0);
-            bool notEStop = Io.ReadBit(_outData, 1, 1);
-            bool notStop = Io.ReadBit(_outData, 1, 2);
-            if (_k100 & !inhibit & notEStop & notStop)
+            var inhibit = Io.ReadBit(_outData, 1, 0);
+            var notEStop = Io.ReadBit(_outData, 1, 1);
+            var notStop = Io.ReadBit(_outData, 1, 2);
+            if (!(_k100 & !inhibit & notEStop & notStop)) return;
+            var start = Io.ReadBit(_outData, 0, 0);
+            var jogCw = Io.ReadBit(_outData, 0, 1);
+            var jogCcw = Io.ReadBit(_outData, 0, 2);
+
+            var mode = _outData[0] & 0b_0011_1000;
+
+            if (start && mode == (int) Mode.Pos)
             {
-                bool start = Io.ReadBit(_outData, 0, 0);
-                bool jogCw = Io.ReadBit(_outData, 0, 1);
-                bool jogCcw = Io.ReadBit(_outData, 0, 2);
+                var fastMode = Io.ReadBit(_outData, 1, 7);
+                var speed = fastMode ? _speed : (_speed * 0.1);
 
-                int mode = _outData[0] & 0b_0011_1000;
+                var index = Io.GetOneIndex(Io.ReadShort(_outData, 3));
+                if (index < 0 || index >= 16) return;
+                var targetPos = _posValues[index];
 
-                if (start && mode == (int) Mode.Pos)
+                if (!(_actualPos > _leftLimit) || !(_actualPos < _rightLimit) ||
+                    Math.Abs(_actualPos - targetPos) < 0.01) return;
+                if (_actualPos - targetPos > speed)
                 {
-                    bool fastMode = Io.ReadBit(_outData, 1, 7);
-                    int speed = fastMode ? _speed : (int) (_speed * 0.1);
-
-                    int targetPos = Io.GetOneIndex(Io.ReadShort(_outData, 3));
-                    if (targetPos >= 0 && targetPos < 16)
-                    {
-                        int targetValue = _posValues[targetPos];
-                    }
+                    _actualPos -= speed;
                 }
+                else if (targetPos - _actualPos > speed)
+                {
+                    _actualPos += speed;
+                }
+                else
+                {
+                    _actualPos = targetPos;
+                }
+
+                _axisSync = true;
+            }
+            else if (mode == (int) Mode.Jog)
+            {
+                var speed = _speed * 0.01;
+                if (jogCw)
+                {
+                    _actualPos += speed;
+                    _axisSync = true;
+                }
+                else if (jogCcw)
+                {
+                    _actualPos -= speed;
+                    _axisSync = true;
+                }
+            }
+
+            // FINISH
+            _k100K = _k100;
+            _nK100K = !_k100;
+            _beRef = _actualPos > -_window && _actualPos < _window;
+            _qkRxK = false;
+            _fqm = true;
+            _fqr = true;
+            _bbm = true;
+            _bbr = true;
+            for (var i = 0; i < 16; i++)
+            {
+                _sensors[i] = _actualPos >= _posValues[i] - _window && _actualPos <= _posValues[i] + _window;
             }
         }
     }
 
-    enum Mode
+    internal enum Mode
     {
         Jog = 0b_0000_0000,
         Pos = 0b_0001_0000,
