@@ -1,6 +1,5 @@
 ﻿using S7.Net;
 using System;
-using System.Runtime.InteropServices;
 
 namespace virtualdevice
 {
@@ -10,7 +9,9 @@ namespace virtualdevice
         private readonly int _addr;
         private bool _k100 = false;
         private readonly int[] _posValues = new int[16];
+        private readonly int[] _camValues = new int[16];
         private int _window = 0;
+        private int _offset = 0;
         private int _speed = 0;
         private int _leftLimit, _rightLimit;
         private double _actualPos;
@@ -26,8 +27,9 @@ namespace virtualdevice
         private bool _bbm = false;
         private bool _bbr = false;
 
+        private readonly bool[] _signals = new bool[16];
         private readonly bool[] _sensors = new bool[16];
-
+        private readonly bool[] _cameras = new bool[16];
 
         private byte[] _outData = new byte[4];
         private byte[] _inData = new byte[4];
@@ -50,6 +52,12 @@ namespace virtualdevice
         public Ama0801 WithWindow(int window)
         {
             _window = window;
+            return this;
+        }
+
+        public Ama0801 WithSensorOffset(int offset)
+        {
+            _offset = offset;
             return this;
         }
 
@@ -106,67 +114,101 @@ namespace virtualdevice
             var inhibit = Io.ReadBit(_outData, 1, 0);
             var notEStop = Io.ReadBit(_outData, 1, 1);
             var notStop = Io.ReadBit(_outData, 1, 2);
-            if (!(_k100 & !inhibit & notEStop & notStop)) return;
             var start = Io.ReadBit(_outData, 0, 0);
-            var jogCw = Io.ReadBit(_outData, 0, 1);
-            var jogCcw = Io.ReadBit(_outData, 0, 2);
-
             var mode = _outData[0] & 0b_0011_1000;
-
-            if (start && mode == (int) Mode.Pos)
+            var targetPos = Io.GetOneIndex(Io.ReadShort(_outData, 3));
+            if (_k100 && !inhibit && notEStop && notStop)
             {
-                var fastMode = Io.ReadBit(_outData, 1, 7);
-                var speed = fastMode ? _speed : (_speed * 0.1);
+                var jogCw = Io.ReadBit(_outData, 0, 1);
+                var jogCcw = Io.ReadBit(_outData, 0, 2);
 
-                var index = Io.GetOneIndex(Io.ReadShort(_outData, 3));
-                if (index < 0 || index >= 16) return;
-                var targetPos = _posValues[index];
+                if (start && mode == (int) Mode.Pos)
+                {
+                    var fastMode = Io.ReadBit(_outData, 1, 7);
+                    var speed = fastMode ? _speed : (_speed * 0.1);
 
-                if (!(_actualPos > _leftLimit) || !(_actualPos < _rightLimit) ||
-                    Math.Abs(_actualPos - targetPos) < 0.01) return;
-                if (_actualPos - targetPos > speed)
-                {
-                    _actualPos -= speed;
-                }
-                else if (targetPos - _actualPos > speed)
-                {
-                    _actualPos += speed;
-                }
-                else
-                {
-                    _actualPos = targetPos;
-                }
+                    if (targetPos < 0 || targetPos >= 16) return;
+                    var targetValue = _posValues[targetPos];
 
-                _axisSync = true;
+                    if (_actualPos > _leftLimit && _actualPos < _rightLimit && !(Math.Abs(_actualPos - targetValue) < 0.01))
+                    {
+                        if (_actualPos - targetValue > speed)
+                        {
+                            _actualPos -= speed;
+                        }
+                        else if (targetValue - _actualPos > speed)
+                        {
+                            _actualPos += speed;
+                        }
+                        else
+                        {
+                            _actualPos = targetValue;
+                        }
+
+                        _axisSync = true;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                else if (mode == (int) Mode.Jog)
+                {
+                    var speed = _speed * 0.01;
+                    if (jogCw)
+                    {
+                        _actualPos += speed;
+                        _axisSync = true;
+                    }
+                    else if (jogCcw)
+                    {
+                        _actualPos -= speed;
+                        _axisSync = true;
+                    }
+                }
             }
-            else if (mode == (int) Mode.Jog)
-            {
-                var speed = _speed * 0.01;
-                if (jogCw)
-                {
-                    _actualPos += speed;
-                    _axisSync = true;
-                }
-                else if (jogCcw)
-                {
-                    _actualPos -= speed;
-                    _axisSync = true;
-                }
-            }
+
+            var actualValue = (int) Math.Round(_actualPos);
 
             // FINISH
             _k100K = _k100;
             _nK100K = !_k100;
-            _beRef = _actualPos > -_window && _actualPos < _window;
+            _beRef = actualValue > -_offset && actualValue < _offset;
             _qkRxK = false;
             _fqm = true;
             _fqr = true;
             _bbm = true;
             _bbr = true;
+            var inPosition = false;
             for (var i = 0; i < 16; i++)
             {
-                _sensors[i] = _actualPos >= _posValues[i] - _window && _actualPos <= _posValues[i] + _window;
+                _signals[i] = Math.Abs(actualValue - _posValues[i]) <= _window && (targetPos == i || !start);
+                _sensors[i] = Math.Abs(actualValue - _posValues[i]) <= _offset;
+                _cameras[i] = Math.Abs(actualValue - _camValues[i]) <= _window;
+                inPosition = inPosition || _signals[i];
             }
+
+            var invReady = _k100;
+            const bool iposRef = true;
+            var notBreak = start;
+            const bool fault = false;
+            var limitCw = actualValue >= _rightLimit;
+            var limitCcw = actualValue <= _leftLimit;
+
+            /* --------------------------- Write AMA_E --------------------------- */
+            _inData[0] = 0; // EB 0
+            Io.WriteBit(_inData, 1, 0, _axisSync); // E1.0
+            Io.WriteBit(_inData, 1, 1, invReady); // E1.1
+            Io.WriteBit(_inData, 1, 2, iposRef); // E1.2
+            Io.WriteBit(_inData, 1, 3, inPosition); // E1.3
+            Io.WriteBit(_inData, 1, 4, notBreak); // E1.4
+            Io.WriteBit(_inData, 1, 5, fault); // E1.5
+            Io.WriteBit(_inData, 1, 6, limitCw); // E1.6
+            Io.WriteBit(_inData, 1, 7, limitCcw); // E1.7
+
+            Io.WriteInt(_inData, 2, actualValue); // ED 2
+            Io.WriteBits(_inData, 7, _signals); // ED 7
+            Io.WriteBits(_inData, 9, _cameras); // ED 9
         }
     }
 
