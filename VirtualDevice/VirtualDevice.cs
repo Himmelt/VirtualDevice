@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using S7.Net;
 
 namespace virtualdevice
@@ -8,7 +9,7 @@ namespace virtualdevice
         protected Plc Plc { get; }
         public string Name { get; }
 
-        protected Dictionary<string, Symbol> _symbols = new Dictionary<string, Symbol>();
+        private ConcurrentDictionary<string, Address> _symbols = new ConcurrentDictionary<string, Address>();
 
         protected VirtualDevice(Plc plc, string name)
         {
@@ -22,23 +23,35 @@ namespace virtualdevice
 
         public abstract void Run();
 
+        public VirtualDevice RegisterSymbol(string symbol, Address address)
+        {
+            _symbols.TryAdd(symbol, address);
+            return this;
+        }
+
         public void ReadWriteSymbols()
         {
             foreach (var symbol in _symbols.Values)
             {
-                if (symbol.Type == DataType.Input)
+                if (symbol.type == DataType.Input)
                 {
-                    
                 }
             }
         }
     }
 
-    public class Symbol
+    public class Address
     {
-        public DataType Type { get; }
-        public int Index { get; }
-        public int Bit { get; }
-        public bool Value { get; set; }
+        public volatile bool value;
+        public readonly DataType type;
+        public readonly int index;
+        public readonly int bit;
+
+        public Address(DataType type, int index, int bit)
+        {
+            this.type = type;
+            this.index = index;
+            this.bit = bit;
+        }
     }
 }
