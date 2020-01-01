@@ -46,9 +46,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Ama0801.cs" />
-    <Compile Include="HardwareConfig.cs" />
+    <Compile Include="Hardware.cs" />
     <Compile Include="Io.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="Robot.cs" />
     <Compile Include="Ventil.cs" />
     <Compile Include="VirtualDevice.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
