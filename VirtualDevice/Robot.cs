@@ -1,25 +1,17 @@
-using S7.Net;
-
-namespace virtualdevice
-{
-    public class Robot : VirtualDevice
-    {
-        public Robot(Plc plc, string name) : base(plc, name)
-        {
+namespace virtualdevice {
+    public class Robot : VirtualDevice {
+        public Robot(string name) : base(name) {
         }
 
-        public override void Read()
-        {
+        public override void Read(byte[] outBytes) {
             throw new System.NotImplementedException();
         }
 
-        public override void Write()
-        {
+        public override void Write(byte[] inBytes) {
             throw new System.NotImplementedException();
         }
 
-        public override void Run()
-        {
+        public override void Run() {
             throw new System.NotImplementedException();
         }
     }

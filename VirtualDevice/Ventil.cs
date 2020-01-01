@@ -1,26 +1,19 @@
-﻿using S7.Net;
-using System;
+﻿using System;
 
-namespace virtualdevice
-{
-    public class Ventil : VirtualDevice
-    {
-        public Ventil(Plc plc,string name) : base(plc,name)
-        {
+namespace virtualdevice {
+    public class Ventil : VirtualDevice {
+        public Ventil(string name) : base(name) {
         }
 
-        public override void Read()
-        {
+        public override void Read(byte[] outBytes) {
             throw new NotImplementedException();
         }
 
-        public override void Write()
-        {
+        public override void Write(byte[] inBytes) {
             throw new NotImplementedException();
         }
 
-        public override void Run()
-        {
+        public override void Run() {
             throw new NotImplementedException();
         }
     }

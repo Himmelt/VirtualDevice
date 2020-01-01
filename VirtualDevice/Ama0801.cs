@@ -1,10 +1,7 @@
-﻿using S7.Net;
-using System;
+﻿using System;
 
-namespace virtualdevice
-{
-    class Ama0801 : VirtualDevice
-    {
+namespace virtualdevice {
+    class Ama0801 : VirtualDevice {
         private readonly string _name;
         private readonly int _addr;
         private bool _k100 = false;
@@ -34,54 +31,49 @@ namespace virtualdevice
         private byte[] _outData = new byte[4];
         private byte[] _inData = new byte[4];
 
-        public Ama0801(Plc plc, string name, int addr) : base(plc, name)
-        {
+        public Ama0801(string name, int addr) : base(name) {
             _addr = addr;
         }
 
-        public Ama0801 WithPos(int index, int value)
-        {
-            if (index >= 0 && index < _posValues.Length)
-            {
+        public Ama0801 WithPos(int index, int value) {
+            if (index >= 0 && index < _posValues.Length) {
                 _posValues[index] = value;
             }
 
             return this;
         }
 
-        public Ama0801 WithWindow(int window)
-        {
+        public Ama0801 WithWindow(int window) {
             _window = window;
             return this;
         }
 
-        public Ama0801 WithSensorOffset(int offset)
-        {
+        public Ama0801 WithSensorOffset(int offset) {
             _offset = offset;
             return this;
         }
 
-        public Ama0801 WithSpeed(int speed)
-        {
+        public Ama0801 WithSpeed(int speed) {
             _speed = speed;
             return this;
         }
 
-        public Ama0801 WithLimit(int left, int right)
-        {
+        public Ama0801 WithLimit(int left, int right) {
             _leftLimit = left;
             _rightLimit = right;
             return this;
         }
 
-        public override void Read()
-        {
-            _outData = Plc.ReadBytes(DataType.Output, 0, _addr, 4);
+        public override void Read(byte[] outBytes) {
+            for (var i = 0; i < 4; i++) {
+                _outData[i] = outBytes[_addr + i];
+            }
         }
 
-        public override void Write()
-        {
-            Plc.WriteBytes(DataType.Input, 0, _addr, _inData);
+        public override void Write(byte[] inBytes) {
+            for (var i = 0; i < 4; i++) {
+                inBytes[_addr + i] = _inData[i];
+            }
         }
 
         /// <summary>
@@ -109,59 +101,49 @@ namespace virtualdevice
         /// targetPos3 : BOOL;// A3.2 single bit position 3
         /// targetPos4 : BOOL;// A3.3 single bit position 4
         /// </summary>
-        public override void Run()
-        {
+        public override void Run() {
             var inhibit = Io.ReadBit(_outData, 1, 0);
             var notEStop = Io.ReadBit(_outData, 1, 1);
             var notStop = Io.ReadBit(_outData, 1, 2);
             var start = Io.ReadBit(_outData, 0, 0);
             var mode = _outData[0] & 0b_0011_1000;
             var targetPos = Io.GetOneIndex(Io.ReadShort(_outData, 3));
-            if (_k100 && !inhibit && notEStop && notStop)
-            {
+            if (_k100 && !inhibit && notEStop && notStop) {
                 var jogCw = Io.ReadBit(_outData, 0, 1);
                 var jogCcw = Io.ReadBit(_outData, 0, 2);
 
-                if (start && mode == (int) Mode.Pos)
-                {
+                if (start && mode == (int) Mode.Pos) {
                     var fastMode = Io.ReadBit(_outData, 1, 7);
                     var speed = fastMode ? _speed : (_speed * 0.1);
 
                     if (targetPos < 0 || targetPos >= 16) return;
                     var targetValue = _posValues[targetPos];
 
-                    if (_actualPos > _leftLimit && _actualPos < _rightLimit && !(Math.Abs(_actualPos - targetValue) < 0.01))
-                    {
-                        if (_actualPos - targetValue > speed)
-                        {
+                    if (_actualPos > _leftLimit && _actualPos < _rightLimit &&
+                        !(Math.Abs(_actualPos - targetValue) < 0.01)) {
+                        if (_actualPos - targetValue > speed) {
                             _actualPos -= speed;
                         }
-                        else if (targetValue - _actualPos > speed)
-                        {
+                        else if (targetValue - _actualPos > speed) {
                             _actualPos += speed;
                         }
-                        else
-                        {
+                        else {
                             _actualPos = targetValue;
                         }
 
                         _axisSync = true;
                     }
-                    else
-                    {
+                    else {
                         return;
                     }
                 }
-                else if (mode == (int) Mode.Jog)
-                {
+                else if (mode == (int) Mode.Jog) {
                     var speed = _speed * 0.01;
-                    if (jogCw)
-                    {
+                    if (jogCw) {
                         _actualPos += speed;
                         _axisSync = true;
                     }
-                    else if (jogCcw)
-                    {
+                    else if (jogCcw) {
                         _actualPos -= speed;
                         _axisSync = true;
                     }
@@ -180,8 +162,7 @@ namespace virtualdevice
             _bbm = true;
             _bbr = true;
             var inPosition = false;
-            for (var i = 0; i < 16; i++)
-            {
+            for (var i = 0; i < 16; i++) {
                 _signals[i] = Math.Abs(actualValue - _posValues[i]) <= _window && (targetPos == i || !start);
                 _sensors[i] = Math.Abs(actualValue - _posValues[i]) <= _offset;
                 _cameras[i] = Math.Abs(actualValue - _camValues[i]) <= _window;
@@ -212,8 +193,7 @@ namespace virtualdevice
         }
     }
 
-    internal enum Mode
-    {
+    internal enum Mode {
         Jog = 0b_0000_0000,
         Pos = 0b_0001_0000,
         Ref = 0b_0010_0000,
