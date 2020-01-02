@@ -2,16 +2,55 @@
 
 namespace virtualdevice {
     class Ama0801 : VirtualDevice {
+        // 固有属性
         private readonly string _name;
         private readonly int _addr;
-        private bool _k100 = false;
-        private readonly int[] _posValues = new int[16];
-        private readonly int[] _camValues = new int[16];
         private int _window = 0;
         private int _offset = 0;
         private int _speed = 0;
+
         private int _leftLimit, _rightLimit;
-        private double _actualPos;
+
+        // 外部信号
+        private bool _k100 = false;
+
+        // 内部变量
+        private bool start = false; // A0.0 start
+        private bool jogCW = false; // A0.1 jog cw
+        private bool jogCCW = false; // A0.2 jog ccw
+        // private bool mode_0 = false; // A0.3 mode 2^0
+        // private bool mode_1 = false; // A0.4 mode 2^1
+        // private bool mode_2 = false; // A0.5 mode 2^2
+        private Mode _mode = Mode.Jog;
+        private bool synchronize = false; // A0.6 synchronize offset
+        private bool softLimit = false; // A0.7 software limit switch off
+        private bool inhibit = false; // A1.0 controller inhibit/enable
+        private bool notEStop = false; // A1.1 enable/rapid stop
+        private int targetPos = -1;
+        private bool notStop = false; // A1.2 enable/stop
+        private bool jogCw = false;
+        private bool jogCcw = false;
+
+        //private bool reserve1 = false; // A1.3 reserved
+        private bool rampScaling = false; // A1.4 ramp scaling
+
+        //private bool reserve2 = false; // A1.5 reserved
+        private bool reset = false; // A1.6 reset
+        private bool fastMode = false; // A1.7 fast fast/slow fast
+
+        private bool invReady = false;
+        const bool iposRef = true;
+        private bool notBreak = false;
+        const bool fault = false;
+        private bool limitCw = false;
+        private bool limitCcw = false;
+        private bool inPosition = false;
+
+        private readonly int[] _posValues = new int[16];
+        private readonly int[] _camValues = new int[16];
+
+        private int actualValue = 0;
+        private double _actualPos = 0.0;
 
         // OUT
         private bool _axisSync = false;
@@ -27,9 +66,6 @@ namespace virtualdevice {
         private readonly bool[] _signals = new bool[16];
         private readonly bool[] _sensors = new bool[16];
         private readonly bool[] _cameras = new bool[16];
-
-        private byte[] _outData = new byte[4];
-        private byte[] _inData = new byte[4];
 
         public Ama0801(string name, int addr) : base(name) {
             _addr = addr;
@@ -48,7 +84,7 @@ namespace virtualdevice {
             return this;
         }
 
-        public Ama0801 WithSensorOffset(int offset) {
+        public Ama0801 WithOffset(int offset) {
             _offset = offset;
             return this;
         }
@@ -65,15 +101,31 @@ namespace virtualdevice {
         }
 
         public override void Read(byte[] outBytes) {
-            for (var i = 0; i < 4; i++) {
-                _outData[i] = outBytes[_addr + i];
-            }
+            inhibit = Io.ReadBit(outBytes, _addr + 1, 0);
+            notEStop = Io.ReadBit(outBytes, _addr + 1, 1);
+            notStop = Io.ReadBit(outBytes, _addr + 1, 2);
+            start = Io.ReadBit(outBytes, _addr + 0, 0);
+            _mode = (Mode) (outBytes[_addr + 0] & 0b_0011_1000);
+            targetPos = Io.GetOneIndex(Io.ReadShort(outBytes, _addr + 3));
+            fastMode = Io.ReadBit(outBytes, _addr + 1, 7);
+            jogCw = Io.ReadBit(outBytes, _addr + 0, 1);
+            jogCcw = Io.ReadBit(outBytes, _addr + 0, 2);
         }
 
         public override void Write(byte[] inBytes) {
-            for (var i = 0; i < 4; i++) {
-                inBytes[_addr + i] = _inData[i];
-            }
+            inBytes[_addr + 0] = 0; // EB 0
+            Io.WriteBit(inBytes, _addr + 1, 0, _axisSync); // E1.0
+            Io.WriteBit(inBytes, _addr + 1, 1, invReady); // E1.1
+            Io.WriteBit(inBytes, _addr + 1, 2, iposRef); // E1.2
+            Io.WriteBit(inBytes, _addr + 1, 3, inPosition); // E1.3
+            Io.WriteBit(inBytes, _addr + 1, 4, notBreak); // E1.4
+            Io.WriteBit(inBytes, _addr + 1, 5, fault); // E1.5
+            Io.WriteBit(inBytes, _addr + 1, 6, limitCw); // E1.6
+            Io.WriteBit(inBytes, _addr + 1, 7, limitCcw); // E1.7
+
+            Io.WriteInt(inBytes, _addr + 2, actualValue); // ED 2
+            Io.WriteBits(inBytes, _addr + 7, _signals); // ED 7
+            Io.WriteBits(inBytes, _addr + 9, _cameras); // ED 9
         }
 
         /// <summary>
@@ -102,18 +154,8 @@ namespace virtualdevice {
         /// targetPos4 : BOOL;// A3.3 single bit position 4
         /// </summary>
         public override void Run() {
-            var inhibit = Io.ReadBit(_outData, 1, 0);
-            var notEStop = Io.ReadBit(_outData, 1, 1);
-            var notStop = Io.ReadBit(_outData, 1, 2);
-            var start = Io.ReadBit(_outData, 0, 0);
-            var mode = _outData[0] & 0b_0011_1000;
-            var targetPos = Io.GetOneIndex(Io.ReadShort(_outData, 3));
             if (_k100 && !inhibit && notEStop && notStop) {
-                var jogCw = Io.ReadBit(_outData, 0, 1);
-                var jogCcw = Io.ReadBit(_outData, 0, 2);
-
-                if (start && mode == (int) Mode.Pos) {
-                    var fastMode = Io.ReadBit(_outData, 1, 7);
+                if (start && _mode == Mode.Pos) {
                     var speed = fastMode ? _speed : (_speed * 0.1);
 
                     if (targetPos < 0 || targetPos >= 16) return;
@@ -137,7 +179,7 @@ namespace virtualdevice {
                         return;
                     }
                 }
-                else if (mode == (int) Mode.Jog) {
+                else if (_mode == Mode.Jog) {
                     var speed = _speed * 0.01;
                     if (jogCw) {
                         _actualPos += speed;
@@ -150,7 +192,7 @@ namespace virtualdevice {
                 }
             }
 
-            var actualValue = (int) Math.Round(_actualPos);
+            actualValue = (int) Math.Round(_actualPos);
 
             // FINISH
             _k100K = _k100;
@@ -161,7 +203,7 @@ namespace virtualdevice {
             _fqr = true;
             _bbm = true;
             _bbr = true;
-            var inPosition = false;
+            inPosition = false;
             for (var i = 0; i < 16; i++) {
                 _signals[i] = Math.Abs(actualValue - _posValues[i]) <= _window && (targetPos == i || !start);
                 _sensors[i] = Math.Abs(actualValue - _posValues[i]) <= _offset;
@@ -169,27 +211,10 @@ namespace virtualdevice {
                 inPosition = inPosition || _signals[i];
             }
 
-            var invReady = _k100;
-            const bool iposRef = true;
-            var notBreak = start;
-            const bool fault = false;
-            var limitCw = actualValue >= _rightLimit;
-            var limitCcw = actualValue <= _leftLimit;
-
-            /* --------------------------- Write AMA_E --------------------------- */
-            _inData[0] = 0; // EB 0
-            Io.WriteBit(_inData, 1, 0, _axisSync); // E1.0
-            Io.WriteBit(_inData, 1, 1, invReady); // E1.1
-            Io.WriteBit(_inData, 1, 2, iposRef); // E1.2
-            Io.WriteBit(_inData, 1, 3, inPosition); // E1.3
-            Io.WriteBit(_inData, 1, 4, notBreak); // E1.4
-            Io.WriteBit(_inData, 1, 5, fault); // E1.5
-            Io.WriteBit(_inData, 1, 6, limitCw); // E1.6
-            Io.WriteBit(_inData, 1, 7, limitCcw); // E1.7
-
-            Io.WriteInt(_inData, 2, actualValue); // ED 2
-            Io.WriteBits(_inData, 7, _signals); // ED 7
-            Io.WriteBits(_inData, 9, _cameras); // ED 9
+            invReady = _k100;
+            notBreak = start;
+            limitCw = actualValue >= _rightLimit;
+            limitCcw = actualValue <= _leftLimit;
         }
     }
 

@@ -66,7 +66,7 @@ namespace virtualdevice {
         private async void CycleAsync() {
             await Task.Run(() => {
                 while (!_stop) {
-                    foreach (var device in _devices.Values.Where(device => !_stop)) {
+                    foreach (var device in _devices.Values.TakeWhile(device => !_stop)) {
                         device.Read(_outBytes);
                         device.Run();
                         device.Write(_inBytes);
