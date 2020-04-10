@@ -6,8 +6,8 @@ using S7.Net;
 namespace virtualdevice {
     public class Hardware {
         private volatile bool _stop = true;
-        private volatile byte[] _inBytes;
-        private volatile byte[] _outBytes;
+        private volatile byte[] _inBytes = new byte[2048];
+        private volatile byte[] _outBytes = new byte[2048];
         private readonly Plc _plc;
 
         private readonly Dictionary<string, VirtualDevice> _devices = new Dictionary<string, VirtualDevice>();
@@ -50,7 +50,7 @@ namespace virtualdevice {
         private async void ReadAsync() {
             await Task.Run(() => {
                 while (!_stop) {
-                    _outBytes = _plc.ReadBytes(DataType.Output, 0, 0, 3000);
+                    // _outBytes = _plc.ReadBytes(DataType.Output, 0, 0, 3000);
                 }
             });
         }
@@ -58,7 +58,7 @@ namespace virtualdevice {
         private async void WriteAsync() {
             await Task.Run(() => {
                 while (!_stop) {
-                    _plc.WriteBytes(DataType.Input, 0, 0, _inBytes);
+                    // _plc.WriteBytes(DataType.Input, 0, 0, _inBytes);
                 }
             });
         }

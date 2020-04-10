@@ -1,4 +1,5 @@
-﻿using S7.Net;
+﻿using System.Threading;
+using S7.Net;
 
 namespace virtualdevice {
     public class Program {
@@ -7,6 +8,9 @@ namespace virtualdevice {
             var hardware = new Hardware(plc);
             hardware.AddDevice(new Ama0801("ama0801", 100));
             hardware.Run();
+            while (true) {
+                Thread.Sleep(1000);
+            }
         }
     }
 }

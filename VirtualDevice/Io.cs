@@ -30,16 +30,17 @@
         }
 
         public static sbyte seekOne(byte value) {
-            for (sbyte i = 0; i < 8; i++) {
-                value >>= 1;
-                if (value != 0) {
-                    continue;
-                }
-
-                return i;
+            switch (value) {
+                case 1 << 0: return 0;
+                case 1 << 1: return 1;
+                case 1 << 2: return 2;
+                case 1 << 3: return 3;
+                case 1 << 4: return 4;
+                case 1 << 5: return 5;
+                case 1 << 6: return 6;
+                case 1 << 7: return 7;
+                default: return -1;
             }
-
-            return -1;
         }
     }
 }
